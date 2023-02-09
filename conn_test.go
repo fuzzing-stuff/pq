@@ -277,6 +277,50 @@ func TestExec(t *testing.T) {
 		}
 	}
 }
+func FuzzExec(f *testing.F) {
+	f.Add(5)
+	db := openTestConn(f)
+	defer db.Close()
+
+	_, err := db.Exec("CREATE TEMP TABLE temp (a int)")
+	if err != nil {
+		f.Fatal(err)
+	}
+
+	f.Fuzz(func(t *testing.T, i int) {
+		r, err := db.Exec("INSERT INTO temp VALUES ($1)", i)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if n, _ := r.RowsAffected(); n != 1 {
+			t.Fatalf("expected 1 row affected, not %d", n)
+		}
+		r, err = db.Exec("INSERT INTO temp VALUES ($1), ($2), ($3)", i*i, i+2, i*3)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if n, _ := r.RowsAffected(); n != 3 {
+			t.Fatalf("expected 3 rows affected, not %d", n)
+		}
+	})
+}
+func FuzzSQL(f *testing.F) {
+	f.Add("CREATE TEMP TABLE temp (a int)")
+	f.Add("INSERT INTO temp VALUES (1)")
+	f.Add("SELECT * FROM temp")
+	db := openTestConn(f)
+	defer db.Close()
+
+	f.Fuzz(func(t *testing.T, s string) {
+		_, _ = db.Exec(s)
+		// if err != nil {
+		// 	t.Fatal(err)
+		// }
+		//
+	})
+}
 
 func TestStatment(t *testing.T) {
 	db := openTestConn(t)
